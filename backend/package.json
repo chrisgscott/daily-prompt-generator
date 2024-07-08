@@ -12,6 +12,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@getbrevo/brevo": "^2.2.0",
     "axios": "^1.7.2",
     "bull": "^4.15.1",
     "cors": "^2.8.5",

@@ -1,17 +1,12 @@
 const cron = require('node-cron');
-const nodemailer = require('nodemailer');
 const { Subscriber } = require('./models/subscriber');
+const sendPromptEmail = require('./emailSender');
 
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-});
-
+// Schedule the job to run every day at midnight
 cron.schedule('0 0 * * *', async () => {
+  console.log('Running daily email task');
   const subscribers = await Subscriber.findAll();
+  
   for (const subscriber of subscribers) {
     try {
       let prompts = [];
@@ -30,12 +25,8 @@ cron.schedule('0 0 * * *', async () => {
       const promptIndex = subscriber.lastPromptSent % prompts.length;
       const dailyPrompt = prompts[promptIndex].prompt;
 
-      await transporter.sendMail({
-        from: process.env.EMAIL_USER,
-        to: subscriber.email,
-        subject: "Your Daily Journal Prompt",
-        text: dailyPrompt,
-      });
+      // Use the new sendPromptEmail function
+      await sendPromptEmail(subscriber.email, dailyPrompt);
 
       await subscriber.update({ lastPromptSent: subscriber.lastPromptSent + 1 });
       console.log(`Daily prompt sent to subscriber: ${subscriber.id}`);
