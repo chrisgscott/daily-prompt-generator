@@ -10,6 +10,10 @@ const Subscriber = sequelize.define('Subscriber', {
     unique: true,
     allowNull: false
   },
+  firstname: {  // Add this field
+    type: DataTypes.STRING,
+    allowNull: true  // Set to false if you want it to be required
+  },
   categories: {
     type: DataTypes.ARRAY(DataTypes.STRING),
     allowNull: false

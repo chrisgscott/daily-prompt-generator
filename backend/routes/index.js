@@ -4,6 +4,7 @@ const { Subscriber } = require("../models/subscriber");
 const OpenAI = require("openai");
 const nodemailer = require("nodemailer");
 const { promptGenerationQueue } = require('../queueProcessor');
+const { addContactToBrevo } = require('../brevoService');
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -19,7 +20,7 @@ const transporter = nodemailer.createTransport({
 
 router.post("/subscribe", async (req, res) => {
     try {
-      const { email, categories, goal } = req.body;
+      const { email, firstname, categories, goal } = req.body;
       
       // Basic validation
       if (!email || !categories || !goal) {
@@ -29,11 +30,23 @@ router.post("/subscribe", async (req, res) => {
         return res.status(400).json({ error: 'Invalid email format' });
       }
   
-      console.log("Attempting to create subscriber with:", { email, categories, goal });
-      const subscriber = await Subscriber.create({ email, categories, goal });
+      console.log("Attempting to create subscriber with:", { email, firstname, categories, goal });
+      const subscriber = await Subscriber.create({ email, firstname, categories, goal });
       console.log("Subscriber created, queueing prompt generation for subscriber:", subscriber.toJSON());
       
       await promptGenerationQueue.add({ subscriberId: subscriber.id, categories, goal });
+  
+      // Add subscriber to Brevo as a contact
+      try {
+        await addContactToBrevo(email, {
+          FIRSTNAME: firstname,
+          CATEGORIES: categories.join(','),
+          GOAL: goal
+        });
+        console.log("Subscriber added to Brevo contacts");
+      } catch (brevoError) {
+        console.error("Error adding subscriber to Brevo contacts:", brevoError);
+      }
   
       res.status(201).json({
         message: "Subscription successful. Prompts will be generated shortly.",
@@ -46,7 +59,7 @@ router.post("/subscribe", async (req, res) => {
       }
       res.status(500).json({ error: 'An unexpected error occurred' });
     }
-});
+  });
 
 router.post("/send-daily-prompt", async (req, res) => {
   try {
