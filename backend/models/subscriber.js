@@ -29,6 +29,11 @@ const Subscriber = sequelize.define('Subscriber', {
   lastPromptSent: {
     type: DataTypes.INTEGER,
     defaultValue: 0
+  },
+  timeZone: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    defaultValue: 'UTC'
   }
 }, {
   tableName: 'Subscribers' // Explicitly set the table name
