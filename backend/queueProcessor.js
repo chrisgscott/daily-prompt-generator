@@ -1,6 +1,7 @@
 const Queue = require("bull");
 const OpenAI = require("openai");
 const { Subscriber } = require("./models/subscriber");
+const { OPENAI_PROMPT_TEMPLATE } = require('./constants');
 require("dotenv").config();
 
 const openai = new OpenAI({
@@ -26,11 +27,16 @@ async function generatePrompts(categories, goal, count) {
       const promptsToGenerate = Math.min(batchSize, count - allPrompts.length);
       console.log(`Generating ${promptsToGenerate} prompts...`);
   
+      const prompt = OPENAI_PROMPT_TEMPLATE
+        .replace('{count}', promptsToGenerate)
+        .replace('{categories}', categories.join(', '))
+        .replace('{goal}', goal);
+
       const response = await openai.chat.completions.create({
         model: "gpt-3.5-turbo",
         messages: [{
           role: "system",
-          content: `Generate exactly ${promptsToGenerate} personalized journal prompts for a user interested in ${categories.join(', ')} with the goal of ${goal}. Each prompt should be no more than 150 characters long. Return ONLY a valid JSON array with each object containing a 'prompt' field, without any markdown formatting or explanation.`
+          content: prompt
         }],
         max_tokens: 2048,
         temperature: 0.7,

@@ -8,6 +8,7 @@ const {
   sendEmailWithBrevo,
 } = require("../brevoService");
 const { body, validationResult } = require("express-validator");
+const { OPENAI_PROMPT_TEMPLATE } = require('../constants');
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -92,39 +93,41 @@ router.post(
 );
 
 router.post("/generate-prompts", async (req, res) => {
-  try {
-    const { subscriberId } = req.body;
-    const subscriber = await Subscriber.findByPk(subscriberId);
-
-    if (!subscriber) {
-      return res.status(404).json({ error: "Subscriber not found" });
+    try {
+      const { subscriberId } = req.body;
+      const subscriber = await Subscriber.findByPk(subscriberId);
+  
+      if (!subscriber) {
+        return res.status(404).json({ error: "Subscriber not found" });
+      }
+  
+      console.log("Starting prompt generation for subscriber:", subscriberId);
+      
+      const prompt = OPENAI_PROMPT_TEMPLATE
+        .replace('{count}', '365')
+        .replace('{categories}', subscriber.categories.join(', '))
+        .replace('{goal}', subscriber.goal);
+  
+      const response = await openai.chat.completions.create({
+        model: "gpt-3.5-turbo",
+        messages: [
+          {
+            role: "system",
+            content: prompt,
+          },
+        ],
+      });
+  
+      const prompts = JSON.parse(response.choices[0].message.content);
+      await subscriber.update({ prompts: JSON.stringify(prompts) });
+  
+      console.log("Prompt generation completed for subscriber:", subscriberId);
+      res.status(200).json({ message: "Prompts generated successfully" });
+    } catch (error) {
+      console.error("Error in prompt generation:", error);
+      res.status(500).json({ error: error.message });
     }
-
-    console.log("Starting prompt generation for subscriber:", subscriberId);
-    const response = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
-      messages: [
-        {
-          role: "system",
-          content: `Generate 365 personalized journal prompts for a user. The user's preferences are as follows: Categories: ${subscriber.categories.join(
-            ", "
-          )} Major goal: ${
-            subscriber.goal
-          } Each prompt should be no more than 150 characters long and the response should be formatted as a JSON array with each object containing a 'prompt' field.`,
-        },
-      ],
-    });
-
-    const prompts = JSON.parse(response.choices[0].message.content);
-    await subscriber.update({ prompts: JSON.stringify(prompts) });
-
-    console.log("Prompt generation completed for subscriber:", subscriberId);
-    res.status(200).json({ message: "Prompts generated successfully" });
-  } catch (error) {
-    console.error("Error in prompt generation:", error);
-    res.status(500).json({ error: error.message });
-  }
-});
+  });
 
 router.post("/send-daily-prompt", async (req, res) => {
   try {
